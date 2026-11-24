@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; }
+  [hidden] { display: none !important; }
+</style>
+<title>Grandkid Count</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+  /* Layout: one big total, a single proportional bar split by grandparents, then one open column per set of grandparents listing parents and kids. */
+  :root {
+    --bg: #f5f7f5;
+    --fg: #1b2827;
+    --muted: #586866;
+    --line: #d9e0dd;
+    --chip: #e9eeec;
+    --g-gk: #0e6b66;
+    --g-rl: #c2456b;
+    --g-jl: #c9821a;
+    --g-bk: #5757d1;
+    --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --font-body: "DM Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #111917;
+      --fg: #e7efed;
+      --muted: #9bacaa;
+      --line: #2a3935;
+      --chip: #1c2825;
+      --g-gk: #3fb5ac;
+      --g-rl: #e87fa0;
+      --g-jl: #e5ae4a;
+      --g-bk: #9494f2;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111917;
+    --fg: #e7efed;
+    --muted: #9bacaa;
+    --line: #2a3935;
+    --chip: #1c2825;
+    --g-gk: #3fb5ac;
+    --g-rl: #e87fa0;
+    --g-jl: #e5ae4a;
+    --g-bk: #9494f2;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.5;
+    padding-block: 40px 56px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+
+  h1, h2, .num { font-family: var(--font-display); }
+  h1 { font-size: 1rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+  .total { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .num { font-size: clamp(5rem, 22vw, 8.5rem); font-weight: 700; line-height: 0.9; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .total p { margin: 0; font-size: 1.125rem; color: var(--muted); max-width: 20rem; }
+
+  .split { display: flex; flex-direction: column; gap: 14px; }
+  .bar { display: flex; gap: 3px; height: 20px; }
+  .seg { display: flex; border-radius: 3px; overflow: hidden; min-width: 6px; }
+  .seg span { display: block; background: var(--c); }
+  .seg span.later { opacity: 0.35; }
+  .exp { color: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; padding: 0; list-style: none; }
+  .legend li { display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+  .dot { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .legend b { font-weight: 700; }
+
+  .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 40px 32px; }
+  .group { min-width: 0; border-top: 3px solid var(--c); padding-top: 14px; display: flex; flex-direction: column; gap: 18px; }
+  .group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  h2 { font-size: 1.5rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .group-count { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .family { display: flex; flex-direction: column; gap: 8px; }
+  .parents { display: flex; justify-content: space-between; gap: 12px; font-weight: 500; }
+  .parents span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .kids { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .kids li { background: var(--chip); border-radius: 999px; padding: 3px 12px; font-size: 0.9375rem; overflow-wrap: anywhere; }
+  .kids li.placeholder { font-style: italic; color: var(--muted); background: transparent; border: 1px dashed var(--muted); padding: 2px 11px; }
+  .childless .parents span:first-child { color: var(--muted); font-weight: 400; }
+
+  .note { margin: 0; font-size: 0.875rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Grandkid Count</h1>
+    <div class="total">
+      <span class="num">16</span>
+      <p>grandkids across 4 sets of grandparents, plus 3 expected</p>
+    </div>
+  </header>
+
+  <section class="split" aria-label="Grandkids by grandparents">
+    <div class="bar" role="img" aria-label="G and K: 5 born, 2 expected. R and L: 6. J and L: 4 born, 1 expected. B and K: 1.">
+      <div class="seg" style="flex: 7; --c: var(--g-gk)"><span style="flex: 5"></span><span class="later" style="flex: 2"></span></div>
+      <div class="seg" style="flex: 6; --c: var(--g-rl)"><span style="flex: 6"></span></div>
+      <div class="seg" style="flex: 5; --c: var(--g-jl)"><span style="flex: 4"></span><span class="later" style="flex: 1"></span></div>
+      <div class="seg" style="flex: 1; --c: var(--g-bk)"><span style="flex: 1"></span></div>
+    </div>
+    <ul class="legend">
+      <li><span class="dot" style="background: var(--g-gk)"></span>G &amp; K <b>5</b> <span class="exp">+ 2 expected</span></li>
+      <li><span class="dot" style="background: var(--g-rl)"></span>R &amp; L <b>6</b></li>
+      <li><span class="dot" style="background: var(--g-jl)"></span>J &amp; L <b>4</b> <span class="exp">+ 1 expected</span></li>
+      <li><span class="dot" style="background: var(--g-bk)"></span>B &amp; K <b>1</b></li>
+    </ul>
+  </section>
+
+  <section class="groups" aria-label="Breakdown by grandparents and parents">
+    <article class="group" style="--c: var(--g-gk)">
+      <div class="group-head"><h2>G &amp; K</h2><span class="group-count">5 grandkids, 2 expected</span></div>
+      <div class="family">
+        <div class="parents"><span>Ryan &amp; Kelsey</span><span>3 + 1 expected</span></div>
+        <ul class="kids"><li>Noah</li><li>Navy</li><li>Beau</li><li class="placeholder">Kelsey baby</li></ul>
+      </div>
+      <div class="family">
+        <div class="parents"><span>Sarah &amp; Sam</span><span>2 + 1 expected</span></div>
+        <ul class="kids"><li>Elsie</li><li>Lucia</li><li class="placeholder">Sarah baby</li></ul>
+      </div>
+      <div class="family childless">
+        <div class="parents"><span>Nathan</span></div>
+      </div>
+      <div class="family childless">
+        <div class="parents"><span>Brittany</span></div>
+      </div>
+    </article>
+
+    <article class="group" style="--c: var(--g-rl)">
+      <div class="group-head"><h2>R &amp; L</h2><span class="group-count">6 grandkids</span></div>
+      <div class="family">
+        <div class="parents"><span>Matt &amp; Alyssa</span><span>2</span></div>
+        <ul class="kids"><li>Ryder</li><li>Ellery</li></ul>
+      </div>
+      <div class="family">
+        <div class="parents"><span>Drew &amp; Katherine</span><span>2</span></div>
+        <ul class="kids"><li>Peyton</li><li>Ainsley</li></ul>
+      </div>
+      <div class="family">
+        <div class="parents"><span>Mike &amp; Jamee</span><span>2</span></div>
+        <ul class="kids"><li>Hailee</li><li>Leah</li></ul>
+      </div>
+    </article>
+
+    <article class="group" style="--c: var(--g-jl)">
+      <div class="group-head"><h2>J &amp; L</h2><span class="group-count">4 grandkids, 1 expected</span></div>
+      <div class="family">
+        <div class="parents"><span>Eric &amp; Jackie</span><span>2</span></div>
+        <ul class="kids"><li>Bailey</li><li>Henry</li></ul>
+      </div>
+      <div class="family">
+        <div class="parents"><span>Kyle &amp; Lindsay</span><span>1</span></div>
+        <ul class="kids"><li>Josie</li></ul>
+      </div>
+      <div class="family">
+        <div class="parents"><span>Brenden &amp; Sway</span><span>1</span></div>
+        <ul class="kids"><li>Luca</li></ul>
+      </div>
+      <div class="family">
+        <div class="parents"><span>Dean &amp; Leanna</span><span>1 expected</span></div>
+        <ul class="kids"><li class="placeholder">Leanna baby</li></ul>
+      </div>
+    </article>
+
+    <article class="group" style="--c: var(--g-bk)">
+      <div class="group-head"><h2>B &amp; K</h2><span class="group-count">1 grandkid</span></div>
+      <div class="family">
+        <div class="parents"><span>Jess &amp; Anthony</span><span>1</span></div>
+        <ul class="kids"><li>Myles</li></ul>
+      </div>
+      <div class="family childless">
+        <div class="parents"><span>Danielle</span></div>
+      </div>
+    </article>
+  </section>
+
+  <p class="note">Dashed italic names are babies who have not been born yet, shown as written in the spreadsheet. They are not in the main count, and the lighter bar shading marks them. Children of the grandparents who have no kids of their own are listed without a count.</p>
+</main>
+</body>
+</html>
